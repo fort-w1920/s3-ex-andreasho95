@@ -1,0 +1,159 @@
+## Lektüre & Quiz: `S3` 
+
+Lesen Sie das [`S3`](https://adv-r.hadley.nz/s3.html) Kapitel von H. Wickham's *Advanced R*. 
+Bearbeiten Sie (mindestens) die folgenden von dort übernommenen/inspirierten Aufgaben:
+
+- Was tut die `as.data.frame.data.frame()` Methode? Warum ist das verwirrend? Wie können Sie derartige Verwirrung in Ihrem eigenen Code vermeiden?
+  
+```{r}
+# Die Methode implementiert die "as.data.frame"-Generic für die "data.frame"-Klasse.
+# Verwirrung entsteht daruch, dass die Funktion "as.data.frame" "." enthält. Dadurch ist nicht klar, ob
+# es sich um eine generische Funktion für die "data.frame"-Klasse oder eine normale Funktion "as.data.frame.data.frame()" handelt.
+# Vermeiden könnte man das, indem man für Funktionen "_" "as.data.frame" benutzt und nur für die generischen Methoden "." verwendet.
+# Also bspw. so: as_data_frame.data.frame()
+```
+  
+  
+- Beschreiben/erklären Sie das Verhalten dieses Codes:
+```r
+set.seed(1014)
+some_days <- as.Date("2019-11-24") + sample(10, 5)
+mean(some_days)
+# [1] "2019-11-30"
+mean(unclass(some_days))
+# [1] 18230.4
+```
+
+```{r}
+# Durch die unclass-Funktion verliert some_days sein Klassen-Attribut. 
+# Dadurch wird die Variable im Method-Dispath der mean-Funktion nicht mehr an die mean.Date-Methode "übergeben",
+# sondern an die Default-Methode
+```
+
+- Welche Klasse hat `x` im folgenden Code? Auf welchem *base type* basiert diese Klasse? Welche Attribute nutzt sie und wie sind die mathematischen Eigenschaften von Verteilungsfunktionen hier konkret implementiert? 
+
+```{r}
+x <- ecdf(rpois(100, 10))
+x
+# Empirical CDF 
+# Call: ecdf(rpois(100, 10))
+#  x[1:15] =      1,      4,      5,  ...,     16,     17
+```
+
+```{r}
+class(x)
+# x besitzt mehrere Klassen: "ecdf", "stepfun" und "function".
+typeof(x)
+# Die Klassen basieren auf dem base tyoe "closure"
+attributes(x)
+# Nutzt neben Klassen-Attribut ein $call Attribut, das den Ausdruck speichert, mit dem das Objekt erzeugt wurde.
+
+# Durch die Klasse "stepfun" erhält das Objekt die mathemischen Eigenschaften einer Treppenfunktion.
+
+```
+
+
+- Schreiben Sie einen neuen low-level Konstruktor für `data.frame`-Objekte (ohne die Funktionen `as.data.frame()` oder `data.frame()` zu benutzen, selbstverständlich). Machen Sie sich zunächst klar: Auf welchem *base type* basiert `data.frame`? Welche Attribute nutzt `data.frame`? Welche Restriktionen gelten für die verschiedenen Einträge und Attribute?  
+    *Hinweis*: Sehen Sie sich dafür zunächst mal so etwas wie `str(unclass(<irgend ein data.frame>))` an.
+    
+```{r}
+str(unclass(mtcars))
+```
+```{r}
+new_data.frame <- function(x, row.names = NULL) {
+  stopifnot(is.list(x))
+  stopifnot(is.character(row.names) | is.null(row.names))
+  # Check wether all list elements are of same length (to ensure every column has same number of rows)
+  stopifnot(all(sapply(x, length) == length(x[[1]])))
+  
+  if (is.null(row.names)) {
+    row.names <- c(1:length(x))
+  }
+  
+  structure(x, 
+            class = "data.frame",
+            row.names = row.names
+  )
+}
+
+test_list <- list("col1" = c(1:4), "col2" = c("A", "B", "C", "D"))
+mydf <- new_data.frame(test_list)
+is.data.frame(mydf)
+```
+
+    
+
+- Kategorisieren Sie die Klassen der Rückgabe-Objekte von `lm(), factor(), table(), as.Date(), as.POSIXct(), ecdf(), ordered(), I()` in die Klassentypen *vector class*, *record style class*, *scalar class* die in *Advanced R* beschrieben  werden.
+
+```{r}
+# lm(): scalar object
+# factor(): vector class
+# table(): vector class
+# as.Date(): vector class
+# as.POSIXct(): record style class
+# as.ecdf(): scalar style class
+# ordered(): vector class
+# I(): ...
+```
+
+
+- Wie sähe ein Konstruktor `new_lm` für Objekte der Klasse `lm` aus? Warum wäre ein solcher Konstruktor vermutlich nicht besonders nützlich? 
+
+```{r}
+attributes(lm(cyl ~ ., data = mtcars))
+```
+
+
+```{r}
+new_lm <- function(
+  coefficients, residuals, effects, rank, fitted.values, assign, qr, df.residual, 
+  xlevels, call, terms, model
+) {
+
+  stopifnot(
+    is.double(coefficients), is.double(residuals), is.double(effects), is.integer(rank), is.double(fitted.values),
+    is.integer(assign), is.list(qr), is.integer(df.residual), is.list(xlevels), is.language(call), is.language(terms),
+    is.list(model)
+  )
+
+  structure(
+    list(
+      coefficients = coefficients,
+      residuals = residuals,
+      effects = effects,
+      rank = rank, 
+      fitted.values = fitted.values,
+      assign = assign,
+      qr = qr,
+      df.residual = df.residual,
+      xlevels = xlevels,
+      call = call,
+      terms = terms, 
+      model = model
+    ),
+    class = "lm"
+  )
+}
+```
+
+
+- Lesen Sie den Quellcode für `t()` und `t.test()`. Ist `t.test()` eine generische S3 Funktion oder eine S3 Methode? Was passiert im Detail wenn sie `t()` auf ein S3-Objekt mit Klasse `test` anwenden (s.u.)? Warum?
+
+```{r}
+sloop::ftype(t.test)
+# => t.test ist eine generische S3 Funktion
+```
+
+
+```{r}
+x <- structure(1:10, class = "test")
+t(x)
+```
+
+```{r}
+# Die generische Funktion t() dispatcht an "t.test", also ihre vermeintliche Methode für die "test"-Klasse.
+# t.test() wird somit fälschlicherweise als Methode von t() verwendet.
+sloop::s3_methods_generic("t.test")
+# Da t.test keine über keine Methode für "test"-Klasse verfügt, wird die Default Methode aufgerufen.
+```
+
