@@ -1,4 +1,5 @@
 ## test data for bb():
+source("s3-bb-sol.R")
 texttest <- "Bedeutet nach jedem Vokal oder Diphtong die Konsonanten..."
 test_vec <- strsplit(texttest, " ")[[1]]
 test_matrix <- matrix(test_vec, nrow = 2, ncol = 4, byrow = TRUE)
